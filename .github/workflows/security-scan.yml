@@ -1,0 +1,54 @@
+name: Security Scan Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  security_scan:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Code checkout
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 2: Node.js setup (apki app Node.js based hai)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      # Step 3: Dependencies install
+      - name: Install Dependencies
+        run: npm install
+
+      # Step 4: SonarQube Scan (static analysis)
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@main
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+         # SONAR_HOST_URL: 
+        with:
+          args: >
+            -Dsonar.projectKey=anshu1602
+            -Dsonar.organization=anshu1602  # Apna organization key daalo
+            -Dsonar.qualitygate.wait=true  # Fail if quality gate fails
+
+      # Step 5: App start for ZAP scan
+      - name: Start Application
+        run: npm start &  # Background mein run karo
+
+      # Step 6: Wait for app to start (20 seconds)
+      - name: Wait for Application
+        run: sleep 20
+
+      # Step 7: OWASP ZAP Baseline Scan (dynamic analysis)
+      - name: OWASP ZAP Scan
+        uses: zaproxy/action-baseline@v0.12.0  # Latest version use karo
+        with:
+          target: 'http://localhost:3000'  # Apki app ka URL
+          fail_action: true  # Fail if vulnerabilities found
+          issue_title: 'ZAP Security Scan Results'
